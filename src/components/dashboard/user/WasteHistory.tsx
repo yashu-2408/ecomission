@@ -1,65 +1,71 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { History, Package, CheckCircle, AlertCircle, Clock, Truck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 
-// Mock waste collection data
-const wasteHistory = [
-  {
-    id: 1,
-    wasteType: 'E-Waste',
-    quantity: 2.5,
-    points: 75,
-    date: '2023-05-12',
-    status: 'completed',
-    staffName: 'Amit Kumar',
-    staffId: 'STAFF-001',
-  },
-  {
-    id: 2,
-    wasteType: 'Plastic',
-    quantity: 3,
-    points: 45,
-    date: '2023-05-08',
-    status: 'completed',
-    staffName: 'Priya Singh',
-    staffId: 'STAFF-003',
-  },
-  {
-    id: 3,
-    wasteType: 'Paper',
-    quantity: 4,
-    points: 40,
-    date: '2023-05-05',
-    status: 'completed',
-    staffName: 'Raj Sharma',
-    staffId: 'STAFF-002',
-  },
-  {
-    id: 4,
-    wasteType: 'Metal',
-    quantity: 1.5,
-    points: 35,
-    date: '2023-05-20',
-    status: 'in-progress',
-    staffName: 'Priya Singh',
-    staffId: 'STAFF-003',
-  },
-  {
-    id: 5,
-    wasteType: 'Glass',
-    quantity: 2,
-    points: 16,
-    date: '2023-05-22',
-    status: 'pending',
-    staffName: null,
-    staffId: null,
-  },
-];
+interface WasteSubmission {
+  id: string;
+  waste_type: string;
+  quantity: number;
+  points: number;
+  created_at: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'rejected';
+  assigned_staff_id: string | null;
+  staff_name?: string;
+  staff_id?: string;
+}
 
 const WasteHistory: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [wasteHistory, setWasteHistory] = useState<WasteSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchWasteHistory();
+    }
+  }, [user]);
+
+  const fetchWasteHistory = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('waste_submissions')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+
+      // For now, we don't have staff profiles linked, so we'll keep the mock staff data
+      const formattedData = data.map(item => ({
+        ...item,
+        staff_name: item.assigned_staff_id ? 'Assigned Staff' : null,
+        staff_id: item.assigned_staff_id
+      }));
+
+      setWasteHistory(formattedData);
+    } catch (error) {
+      console.error('Error fetching waste history:', error);
+      toast({
+        title: "Failed to load waste history",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Function to render status badge with appropriate color and icon
   const renderStatusBadge = (status: string) => {
     switch (status) {
@@ -100,6 +106,15 @@ const WasteHistory: React.FC = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
@@ -112,56 +127,65 @@ const WasteHistory: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
-        <ScrollArea className="h-[350px] pr-4">
-          <div className="space-y-4">
-            {wasteHistory.map((item) => (
-              <div
-                key={item.id}
-                className="border rounded-lg overflow-hidden"
-              >
-                <div className="flex justify-between items-center p-4 border-b bg-muted/50">
-                  <div className="flex items-center">
-                    <Package className="h-5 w-5 mr-2 text-eco-600" />
-                    <div>
-                      <p className="font-medium">{item.wasteType}</p>
-                      <p className="text-xs text-muted-foreground">{item.date}</p>
+        {loading ? (
+          <div className="flex justify-center items-center h-[300px]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-eco-600"></div>
+          </div>
+        ) : wasteHistory.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+            <p>No waste submissions yet.</p>
+            <p className="text-sm mt-2">Submit your first waste collection request to see it here.</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-[350px] pr-4">
+            <div className="space-y-4">
+              {wasteHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="border rounded-lg overflow-hidden"
+                >
+                  <div className="flex justify-between items-center p-4 border-b bg-muted/50">
+                    <div className="flex items-center">
+                      <Package className="h-5 w-5 mr-2 text-eco-600" />
+                      <div>
+                        <p className="font-medium">{item.waste_type}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(item.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-green-600">+{item.points} points</p>
+                      <p className="text-xs">{item.quantity} kg</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium text-green-600">+{item.points} points</p>
-                    <p className="text-xs">{item.quantity} kg</p>
-                  </div>
-                </div>
-                
-                <div className="p-4 flex justify-between items-center">
-                  <div>
-                    {renderStatusBadge(item.status)}
-                    
-                    {item.staffName && (
-                      <p className="text-xs mt-2 text-muted-foreground">
-                        Collection Agent: {item.staffName}
-                      </p>
-                    )}
-                  </div>
                   
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-eco-700 hover:text-eco-800 hover:bg-eco-50"
-                  >
-                    Details
-                  </Button>
+                  <div className="p-4 flex justify-between items-center">
+                    <div>
+                      {renderStatusBadge(item.status)}
+                      
+                      {item.staff_name && (
+                        <p className="text-xs mt-2 text-muted-foreground">
+                          Collection Agent: {item.staff_name}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="text-eco-700 hover:text-eco-800 hover:bg-eco-50"
+                    >
+                      Details
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );
 };
-
-// Import Button
-import { Button } from '@/components/ui/button';
 
 export default WasteHistory;

@@ -11,6 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -19,6 +22,7 @@ const formSchema = z.object({
 
 const ReelsUploadForm: React.FC = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [video, setVideo] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -34,7 +38,7 @@ const ReelsUploadForm: React.FC = () => {
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      // Check file size (limit to 50MB for example)
+      // Check file size (limit to 50MB)
       if (file.size > 50 * 1024 * 1024) {
         toast({
           title: "File too large",
@@ -58,12 +62,60 @@ const ReelsUploadForm: React.FC = () => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to submit eco reels",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUploading(true);
 
     try {
-      // Simulate upload delay - in a real app this would upload to Supabase Storage
-      // and then process with Google Cloud Video Intelligence API
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // First upload the video to Supabase Storage
+      const fileExt = video.name.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      // Upload video to eco_reels bucket
+      const { data: storageData, error: storageError } = await supabase
+        .storage
+        .from('eco_reels')
+        .upload(filePath, video, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (storageError) {
+        throw new Error(storageError.message);
+      }
+
+      // Get public URL for the uploaded video
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('eco_reels')
+        .getPublicUrl(filePath);
+
+      const videoUrl = publicUrlData.publicUrl;
+
+      // Insert reel submission to database
+      const { data: reelData, error: reelError } = await supabase
+        .from('reels')
+        .insert({
+          user_id: user.id,
+          title: values.title,
+          description: values.description,
+          video_url: videoUrl,
+          status: 'pending',
+          points: 0 // Points will be assigned by admin/staff upon approval
+        })
+        .select();
+
+      if (reelError) {
+        throw new Error(reelError.message);
+      }
 
       toast({
         title: "Reel submitted for review!",
@@ -78,7 +130,7 @@ const ReelsUploadForm: React.FC = () => {
       console.error('Error uploading reel:', error);
       toast({
         title: "Upload failed",
-        description: "There was an error uploading your video. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error uploading your video. Please try again.",
         variant: "destructive",
       });
     } finally {

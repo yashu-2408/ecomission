@@ -14,6 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { v4 as uuidv4 } from 'uuid';
 
 const formSchema = z.object({
   location: z.string().min(5, "Location must be at least 5 characters"),
@@ -26,6 +29,7 @@ const formSchema = z.object({
 
 const CleanlinessForm: React.FC = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [beforeImage, setBeforeImage] = useState<File | null>(null);
   const [afterImage, setAfterImage] = useState<File | null>(null);
   const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
@@ -58,6 +62,28 @@ const CleanlinessForm: React.FC = () => {
     }
   };
 
+  const uploadImage = async (file: File, prefix: string) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${prefix}_${uuidv4()}.${fileExt}`;
+    const filePath = `${user?.id}/${fileName}`;
+
+    const { data, error } = await supabase
+      .storage
+      .from('waste_images')
+      .upload(filePath, file);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const { data: urlData } = supabase
+      .storage
+      .from('waste_images')
+      .getPublicUrl(filePath);
+
+    return urlData.publicUrl;
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!beforeImage || !afterImage) {
       toast({
@@ -68,12 +94,41 @@ const CleanlinessForm: React.FC = () => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to submit cleanliness drives",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Simulate API call - in a real app, this would upload to Supabase
-      // and then submit to admin for verification
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Upload both images
+      const beforeImageUrl = await uploadImage(beforeImage, 'before');
+      const afterImageUrl = await uploadImage(afterImage, 'after');
+
+      // For now, we'll use the waste_submissions table with a special waste_type
+      // In a real implementation, you might want to create a separate cleanliness_drives table
+      const { data, error } = await supabase
+        .from('waste_submissions')
+        .insert({
+          user_id: user.id,
+          waste_type: 'Cleanliness Drive',
+          quantity: 0, // Not applicable for cleanliness drives
+          location: values.location,
+          description: `Before/After cleanliness drive with ${values.participants} participants on ${format(values.date, 'PP')}. Details: ${values.description}`,
+          image_url: afterImageUrl, // Primary image
+          status: 'pending',
+          points: values.participants * 10 // 10 points per participant as a starting formula
+        })
+        .select();
+
+      if (error) {
+        throw new Error(error.message);
+      }
 
       toast({
         title: "Cleanliness drive submitted!",
@@ -90,7 +145,7 @@ const CleanlinessForm: React.FC = () => {
       console.error('Error submitting cleanliness drive:', error);
       toast({
         title: "Submission failed",
-        description: "There was an error submitting your cleanliness drive. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error submitting your cleanliness drive. Please try again.",
         variant: "destructive",
       });
     } finally {

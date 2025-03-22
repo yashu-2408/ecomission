@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { wasteCategories, WasteCategory } from '@/lib/wasteUtils';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { v4 as uuidv4 } from 'uuid';
 
 const formSchema = z.object({
   wasteType: z.string(),
@@ -59,22 +60,68 @@ const WasteSubmissionForm: React.FC = () => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to submit waste collection requests.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // In a real implementation, you would:
-      // 1. Upload the image to Supabase storage
-      // 2. Send the waste data to your Supabase database
-      // 3. Call an AI API to verify the waste type
-      // 4. Assign the request to the nearest staff member
-      
-      // Simulating the upload and verification process
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // First upload the image to Supabase Storage
+      const fileExt = image.name.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      // Upload image to waste_images bucket
+      const { data: storageData, error: storageError } = await supabase
+        .storage
+        .from('waste_images')
+        .upload(filePath, image);
+
+      if (storageError) {
+        throw new Error(storageError.message);
+      }
+
+      // Get public URL for the uploaded image
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('waste_images')
+        .getPublicUrl(filePath);
+
+      const imageUrl = publicUrlData.publicUrl;
+
+      // Calculate points based on waste type and quantity
+      const selectedCategory = wasteCategories.find(cat => cat.id === values.wasteType);
+      const points = selectedCategory ? Math.round(selectedCategory.points * values.quantity) : 0;
+
+      // Insert waste submission to database
+      const { data: submissionData, error: submissionError } = await supabase
+        .from('waste_submissions')
+        .insert({
+          user_id: user.id,
+          waste_type: values.wasteType,
+          quantity: values.quantity,
+          location: values.location,
+          description: values.description || '',
+          image_url: imageUrl,
+          points: points,
+          status: 'pending'
+        })
+        .select();
+
+      if (submissionError) {
+        throw new Error(submissionError.message);
+      }
 
       // Success notification
       toast({
         title: "Waste collection request submitted!",
-        description: "A staff member will contact you soon for pickup.",
+        description: `You've earned ${points} eco-points. A staff member will contact you soon for pickup.`,
       });
 
       // Reset form
@@ -85,7 +132,7 @@ const WasteSubmissionForm: React.FC = () => {
       console.error('Error submitting waste:', error);
       toast({
         title: "Submission failed",
-        description: "There was an error submitting your request. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error submitting your request. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -223,13 +270,25 @@ const WasteSubmissionForm: React.FC = () => {
                           type="button" 
                           variant="outline"
                           onClick={() => {
-                            // In a real app, this would get the user's current location
-                            // using the geolocation API
-                            field.onChange("Current Location");
-                            toast({
-                              title: "Location detected",
-                              description: "Your current location will be used for pickup."
-                            });
+                            if (navigator.geolocation) {
+                              navigator.geolocation.getCurrentPosition(
+                                (position) => {
+                                  const loc = `Lat: ${position.coords.latitude.toFixed(4)}, Long: ${position.coords.longitude.toFixed(4)}`;
+                                  field.onChange(loc);
+                                  toast({
+                                    title: "Location detected",
+                                    description: "Your current location will be used for pickup."
+                                  });
+                                },
+                                () => {
+                                  toast({
+                                    title: "Location detection failed",
+                                    description: "Please enter your address manually.",
+                                    variant: "destructive"
+                                  });
+                                }
+                              );
+                            }
                           }}
                         >
                           <MapPin className="h-4 w-4 mr-2" />

@@ -9,7 +9,117 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reels: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          points: number
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          points?: number
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          video_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          points?: number
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string
+        }
+        Relationships: []
+      }
+      waste_submissions: {
+        Row: {
+          assigned_staff_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          location: string
+          points: number
+          quantity: number
+          status: string
+          updated_at: string
+          user_id: string
+          waste_type: string
+        }
+        Insert: {
+          assigned_staff_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          location: string
+          points?: number
+          quantity: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          waste_type: string
+        }
+        Update: {
+          assigned_staff_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          location?: string
+          points?: number
+          quantity?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          waste_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
