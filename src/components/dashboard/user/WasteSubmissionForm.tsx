@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Camera, Upload, Check, Loader } from 'lucide-react';
+import { Camera, Upload, Check, Loader, MapPin } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
