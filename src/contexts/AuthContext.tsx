@@ -1,17 +1,22 @@
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { useToast } from '@/components/ui/use-toast';
 
 type UserRole = 'user' | 'staff' | 'admin';
 
+type AuthResult = {
+  error: Error | null;
+  data?: any;
+};
+
 type AuthContextType = {
   session: Session | null;
   user: User | null;
   userRole: UserRole | null;
-  signIn: (email: string, password: string, role: UserRole) => Promise<void>;
-  signUp: (email: string, password: string, role: UserRole) => Promise<void>;
+  signIn: (email: string, password: string, role: UserRole) => Promise<AuthResult>;
+  signUp: (email: string, password: string, role: UserRole) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   loading: boolean;
 };
@@ -26,22 +31,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check active sessions when the component mounts
     const setData = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error fetching session:', error);
-      } else {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Fetch user role from user metadata if available
-        if (session?.user) {
-          const role = session.user.user_metadata.role as UserRole;
-          setUserRole(role);
+      try {
+        // Check active sessions when the component mounts
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error fetching session:', error);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          // Fetch user role from user metadata if available
+          if (session?.user) {
+            const role = session.user.user_metadata.role as UserRole;
+            setUserRole(role);
+          }
         }
+      } catch (error) {
+        console.error('Failed to get session:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     setData();
@@ -49,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -69,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const signUp = async (email: string, password: string, role: UserRole) => {
+  const signUp = async (email: string, password: string, role: UserRole): Promise<AuthResult> => {
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signUp({
@@ -88,26 +99,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: error.message,
           variant: "destructive",
         });
+        return { error: error };
       } else {
         toast({
           title: "Verification email sent",
           description: "Please check your email to verify your account.",
         });
-        // Role will be set once the user signs in
+        return { data, error: null };
       }
     } catch (error) {
       console.error('Error signing up:', error);
+      const err = error instanceof Error ? error : new Error('Unknown error during sign up');
       toast({
         title: "An error occurred",
         description: "Please try again later.",
         variant: "destructive",
       });
+      return { error: err };
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string, role: UserRole) => {
+  const signIn = async (email: string, password: string, role: UserRole): Promise<AuthResult> => {
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -121,28 +135,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: error.message,
           variant: "destructive",
         });
+        return { error: error };
       } else if (data.user?.user_metadata.role !== role) {
         // If user tries to login to a portal they don't have access to
         await supabase.auth.signOut();
+        const accessError = new Error(`You don't have permission to access the ${role} portal.`);
         toast({
           title: "Access denied",
           description: `You don't have permission to access the ${role} portal.`,
           variant: "destructive",
         });
+        return { error: accessError };
       } else {
         setUserRole(role);
         toast({
           title: "Signed in successfully",
           description: `Welcome to the ${role} portal.`,
         });
+        return { data, error: null };
       }
     } catch (error) {
       console.error('Error signing in:', error);
+      const err = error instanceof Error ? error : new Error('Unknown error during sign in');
       toast({
         title: "An error occurred",
         description: "Please try again later.",
         variant: "destructive",
       });
+      return { error: err };
     } finally {
       setLoading(false);
     }

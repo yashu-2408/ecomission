@@ -17,6 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
 
 type UserRole = 'user' | 'staff' | 'admin';
 
@@ -34,7 +35,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, title }) => {
   const { signIn, signUp, loading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -45,11 +48,40 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, title }) => {
   });
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
-    if (isSignUp) {
-      await signUp(data.email, data.password, role);
-    } else {
-      await signIn(data.email, data.password, role);
-      navigate(`/dashboard/${role}`);
+    setFormError(null);
+    try {
+      if (isSignUp) {
+        const result = await signUp(data.email, data.password, role);
+        if (result.error) {
+          setFormError(result.error.message);
+          toast({
+            title: "Sign up failed",
+            description: result.error.message,
+            variant: "destructive",
+          });
+        }
+      } else {
+        const result = await signIn(data.email, data.password, role);
+        if (result.error) {
+          setFormError(result.error.message);
+          toast({
+            title: "Sign in failed",
+            description: result.error.message,
+            variant: "destructive",
+          });
+        } else {
+          navigate(`/dashboard/${role}`);
+        }
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setFormError(errorMessage);
+      toast({
+        title: "Authentication Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -66,6 +98,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, title }) => {
           {title}
         </h2>
       </div>
+
+      {formError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
+          {formError}
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
