@@ -1,173 +1,155 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  Leaf, Upload, Camera, MapPin, TrendingUp, History, Wallet, Award, Video, Car, Wind
+} from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Leaf, Award, Car, Wind, Wallet } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import WasteSubmissionForm from '@/components/dashboard/user/WasteSubmissionForm';
+import ReelsUploadForm from '@/components/dashboard/user/ReelsUploadForm';
+import CleanlinessForm from '@/components/dashboard/user/CleanlinessForm';
+import TransportProofForm from '@/components/dashboard/user/TransportProofForm';
+import AirQualityMonitor from '@/components/dashboard/user/AirQualityMonitor';
+import UserWallet from '@/components/dashboard/user/UserWallet';
+import WasteHistory from '@/components/dashboard/user/WasteHistory';
 
 const UserDashboard: React.FC = () => {
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('waste');
+  
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
+  // Dashboard stats - in a real app, these would come from your Supabase database
+  const dashboardStats = {
+    totalPoints: 450,
+    wasteCollected: 35,
+    activeTasks: 2,
+    availableCashback: 250,
+  };
+
   return (
     <DashboardLayout title="User Dashboard">
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-eco-50 border border-eco-100">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="waste">Waste Collection</TabsTrigger>
-          <TabsTrigger value="reels">Eco Reels</TabsTrigger>
-          <TabsTrigger value="events">Cleanliness Drives</TabsTrigger>
-          <TabsTrigger value="transport">Sustainable Transport</TabsTrigger>
-          <TabsTrigger value="wallet">Eco Wallet</TabsTrigger>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+      >
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Eco-Points</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <Leaf className="mr-2 h-4 w-4 text-eco-600" />
+              <div className="text-2xl font-bold">{dashboardStats.totalPoints}</div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Waste Collected (kg)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <TrendingUp className="mr-2 h-4 w-4 text-eco-600" />
+              <div className="text-2xl font-bold">{dashboardStats.wasteCollected}</div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <History className="mr-2 h-4 w-4 text-eco-600" />
+              <div className="text-2xl font-bold">{dashboardStats.activeTasks}</div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Available Cashback (₹)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <Wallet className="mr-2 h-4 w-4 text-eco-600" />
+              <div className="text-2xl font-bold">₹{dashboardStats.availableCashback}</div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <Tabs defaultValue="waste" value={activeTab} onValueChange={handleTabChange} className="mb-8">
+        <TabsList className="grid grid-cols-3 md:grid-cols-6 gap-2">
+          <TabsTrigger value="waste" className="flex items-center">
+            <Upload className="mr-2 h-4 w-4" />
+            <span className="hidden md:inline">Waste Submission</span>
+            <span className="md:hidden">Waste</span>
+          </TabsTrigger>
+          <TabsTrigger value="reels" className="flex items-center">
+            <Video className="mr-2 h-4 w-4" />
+            <span className="hidden md:inline">Eco Reels</span>
+            <span className="md:hidden">Reels</span>
+          </TabsTrigger>
+          <TabsTrigger value="cleanliness" className="flex items-center">
+            <Camera className="mr-2 h-4 w-4" />
+            <span className="hidden md:inline">Cleanliness Drives</span>
+            <span className="md:hidden">Clean</span>
+          </TabsTrigger>
+          <TabsTrigger value="transport" className="flex items-center">
+            <Car className="mr-2 h-4 w-4" />
+            <span className="hidden md:inline">Transport Proof</span>
+            <span className="md:hidden">Transport</span>
+          </TabsTrigger>
+          <TabsTrigger value="airquality" className="flex items-center">
+            <Wind className="mr-2 h-4 w-4" />
+            <span className="hidden md:inline">Air Quality</span>
+            <span className="md:hidden">AQI</span>
+          </TabsTrigger>
+          <TabsTrigger value="wallet" className="flex items-center">
+            <Wallet className="mr-2 h-4 w-4" />
+            <span className="hidden md:inline">Wallet & History</span>
+            <span className="md:hidden">Wallet</span>
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-eco-800 flex items-center">
-                  <Leaf className="mr-2 h-5 w-5 text-eco-600" />
-                  Eco Points
-                </CardTitle>
-                <CardDescription>Your sustainability rewards</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-4xl font-bold text-eco-600">250</p>
-                <p className="text-sm text-gray-500">+15 points this week</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-eco-800 flex items-center">
-                  <Upload className="mr-2 h-5 w-5 text-eco-600" />
-                  Waste Submitted
-                </CardTitle>
-                <CardDescription>Total recyclables processed</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-4xl font-bold text-eco-600">12 kg</p>
-                <p className="text-sm text-gray-500">Across 5 categories</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-eco-800 flex items-center">
-                  <Award className="mr-2 h-5 w-5 text-eco-600" />
-                  Achievements
-                </CardTitle>
-                <CardDescription>Eco milestones reached</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-4xl font-bold text-eco-600">3</p>
-                <p className="text-sm text-gray-500">Recycling Novice badge earned</p>
-              </CardContent>
-            </Card>
+        <TabsContent value="waste" className="mt-6">
+          <WasteSubmissionForm />
+        </TabsContent>
+        
+        <TabsContent value="reels" className="mt-6">
+          <ReelsUploadForm />
+        </TabsContent>
+        
+        <TabsContent value="cleanliness" className="mt-6">
+          <CleanlinessForm />
+        </TabsContent>
+        
+        <TabsContent value="transport" className="mt-6">
+          <TransportProofForm />
+        </TabsContent>
+        
+        <TabsContent value="airquality" className="mt-6">
+          <AirQualityMonitor />
+        </TabsContent>
+        
+        <TabsContent value="wallet" className="mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <UserWallet />
+            <WasteHistory />
           </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-eco-800">Recent Activity</CardTitle>
-              <CardDescription>Your latest sustainability actions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-start gap-4 p-3 rounded-lg bg-eco-50">
-                  <Upload className="h-6 w-6 text-eco-600 mt-1" />
-                  <div>
-                    <p className="font-medium text-eco-800">Plastic waste submitted</p>
-                    <p className="text-sm text-gray-500">2.5kg of plastic bottles - Yesterday</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4 p-3 rounded-lg bg-eco-50">
-                  <Car className="h-6 w-6 text-eco-600 mt-1" />
-                  <div>
-                    <p className="font-medium text-eco-800">Sustainable commute logged</p>
-                    <p className="text-sm text-gray-500">Public transport used - 3 days ago</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4 p-3 rounded-lg bg-eco-50">
-                  <Wind className="h-6 w-6 text-eco-600 mt-1" />
-                  <div>
-                    <p className="font-medium text-eco-800">Air quality check</p>
-                    <p className="text-sm text-gray-500">AQI: Good (45) - 4 days ago</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="waste">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-eco-800">Waste Collection</CardTitle>
-              <CardDescription>Submit and track your recyclable waste</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-6">This feature will allow you to upload images of your waste for categorization and collection.</p>
-              <p className="text-center py-8 text-muted-foreground">Waste collection feature coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="reels">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-eco-800">Eco Reels</CardTitle>
-              <CardDescription>Share environmental awareness videos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-6">Upload short environmental videos to earn eco-points.</p>
-              <p className="text-center py-8 text-muted-foreground">Eco Reels feature coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="events">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-eco-800">Cleanliness Drives</CardTitle>
-              <CardDescription>Organize or participate in cleanup events</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-6">Upload before and after images of cleaned areas to earn eco-points.</p>
-              <p className="text-center py-8 text-muted-foreground">Cleanliness Drives feature coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="transport">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-eco-800">Sustainable Transport</CardTitle>
-              <CardDescription>Log your eco-friendly commutes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-6">Upload proof of public transport usage to earn eco-points.</p>
-              <p className="text-center py-8 text-muted-foreground">Sustainable Transport feature coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="wallet">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-eco-800 flex items-center">
-                <Wallet className="mr-2 h-5 w-5 text-eco-600" />
-                Eco Wallet
-              </CardTitle>
-              <CardDescription>Manage your eco-points and rewards</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-eco-50 p-6 rounded-lg mb-6">
-                <p className="text-lg font-medium text-eco-800 mb-2">Available Balance</p>
-                <p className="text-4xl font-bold text-eco-600 mb-4">250 points</p>
-                <p className="text-sm text-gray-500">≈ ₹125 cashback available</p>
-              </div>
-              <p className="text-center py-4 text-muted-foreground">Cashback redemption feature coming soon...</p>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </DashboardLayout>
